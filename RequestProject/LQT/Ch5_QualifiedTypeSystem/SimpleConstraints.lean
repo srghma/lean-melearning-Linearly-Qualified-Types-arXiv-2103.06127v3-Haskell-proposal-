@@ -1,21 +1,15 @@
 module
 
-public import Mathlib
+public import RequestProject.LQT.Ch2_Background.Multiplicities
 
 /-!
-# Linearly Qualified Types — multiplicities, usages and simple constraints
+# Simple constraints (§5.1, Definition 5.2)
 
-This file contains the basic algebraic material of the paper *Linearly Qualified Types*
-(§2.1 "Multiplicities" and §5.1 "Simple Constraints and Entailment").
+Paper location: §5.1 "Simple Constraints and Entailment" (Definition 5.2 "Simple constraints",
+the scaling `π·Q`, the notation `Q ∈ 𝒟` of Definition 5.3, the predicate "no linear assumptions"
+of Corollary 5.6) and Appendix B.5 (Lemma B.1).  The start and end of each part is marked by
+`-- [PAPER ▶ START]` / `-- [PAPER ◀ END]` comments.
 
-Where each part of the paper starts and ends is marked by `-- [PAPER ▶ START]` /
-`-- [PAPER ◀ END]` comments; material that has no counterpart in the paper is marked
-`-- [NOT IN PAPER ▶ START]` / `-- [NOT IN PAPER ◀ END]`.
-
-* `Mult` : the multiplicities `1` and `ω` that annotate arrows, binders and constraints.
-* `Usage` : the semiring `{0, 1, ω}` used for the *usage vectors* of the de Bruijn
-  presentation of typing contexts (a variable that does not occur in a context of the paper
-  has usage `0` here).
 * `SConstr A` : simple constraints `Q = (U, L)`, a finite set `U` of unrestricted atomic
   constraints together with a multiset `L` of linear atomic constraints.  The tensor product
   `Q₁ ⊗ Q₂` of the paper is written `Q₁ + Q₂` and the empty conjunction `ε` is written `0`;
@@ -25,114 +19,6 @@ Where each part of the paper starts and ends is marked by `-- [PAPER ▶ START]`
 @[expose] public section
 
 namespace LQT
-
--- [PAPER ▶ START] §2.1 "Multiplicities": the grammar `π, ρ ::= 1 | ω` and the product `π⋅ρ`
-/-! ## Multiplicities -/
-
-/-- Multiplicities `π, ρ ::= 1 | ω`. -/
-inductive Mult
-  | one
-  | omega
-  deriving DecidableEq, Repr
-
-namespace Mult
-
-/-- Multiplication of multiplicities: `1 · π = π`, `ω · π = ω`. -/
-def mul : Mult → Mult → Mult
-  | one, p => p
-  | omega, _ => omega
-
-instance : Mul Mult := ⟨mul⟩
-instance : One Mult := ⟨one⟩
-
-@[simp] lemma one_def : (1 : Mult) = one := rfl
-@[simp] lemma one_mul' (p : Mult) : one * p = p := rfl
-@[simp] lemma omega_mul (p : Mult) : omega * p = omega := rfl
-@[simp] lemma mul_omega (p : Mult) : p * omega = omega := by cases p <;> rfl
-@[simp] lemma mul_one' (p : Mult) : p * one = p := by cases p <;> rfl
-
-instance : CommMonoid Mult where
-  mul_assoc a b c := by cases a <;> cases b <;> cases c <;> rfl
-  one_mul a := by cases a <;> rfl
-  mul_one a := by cases a <;> rfl
-  mul_comm a b := by cases a <;> cases b <;> rfl
-
-lemma mul_self (p : Mult) : p * p = p := by cases p <;> rfl
-
-end Mult
-
--- [PAPER ◀ END] §2.1 "Multiplicities"
-
--- [NOT IN PAPER ▶ START] usages `{0, 1, ω}` and usage vectors. They replace the named contexts of
---   the paper: context scaling `π·Γ` and context addition `Γ₁ + Γ₂` (defined below the grammar in
---   Figure 5, §5.2) become pointwise operations on usage vectors
-/-! ## Usages: the semiring `{0, 1, ω}` -/
-
-/-- Usages of a variable in a (de Bruijn) context: `0` (absent), `1` (linear) or `ω`. -/
-inductive Usage
-  | zero
-  | one
-  | omega
-  deriving DecidableEq, Repr
-
-namespace Usage
-
-/-- Addition of usages: `0 + u = u`, `1 + 1 = ω`, `ω + u = ω`. -/
-def add : Usage → Usage → Usage
-  | zero, u => u
-  | u, zero => u
-  | _, _ => omega
-
-instance : Add Usage := ⟨add⟩
-instance : Zero Usage := ⟨zero⟩
-
-@[simp] lemma zero_eq : (zero : Usage) = 0 := rfl
-
-instance : AddCommMonoid Usage where
-  add_assoc a b c := by cases a <;> cases b <;> cases c <;> rfl
-  zero_add a := by cases a <;> rfl
-  add_zero a := by cases a <;> rfl
-  add_comm a b := by cases a <;> cases b <;> rfl
-  nsmul := nsmulRec
-
-/-- The usage corresponding to a multiplicity. -/
-def ofMult : Mult → Usage
-  | .one => one
-  | .omega => omega
-
-instance : Coe Mult Usage := ⟨ofMult⟩
-
-/-- Scaling a usage by a multiplicity. -/
-def smul : Mult → Usage → Usage
-  | .one, u => u
-  | .omega, zero => zero
-  | .omega, _ => omega
-
-instance : SMul Mult Usage := ⟨smul⟩
-
-instance : DistribMulAction Mult Usage where
-  one_smul u := rfl
-  mul_smul a b u := by cases a <;> cases b <;> cases u <;> rfl
-  smul_zero a := by cases a <;> rfl
-  smul_add a u v := by cases a <;> cases u <;> cases v <;> rfl
-
-@[simp] lemma one_smul' (u : Usage) : (Mult.one : Mult) • u = u := rfl
-@[simp] lemma omega_smul_zero : (Mult.omega : Mult) • (0 : Usage) = 0 := rfl
-@[simp] lemma omega_smul_one : (Mult.omega : Mult) • Usage.one = Usage.omega := rfl
-@[simp] lemma omega_smul_omega : (Mult.omega : Mult) • Usage.omega = Usage.omega := rfl
-@[simp] lemma ofMult_one : ofMult Mult.one = Usage.one := rfl
-@[simp] lemma ofMult_omega : ofMult Mult.omega = Usage.omega := rfl
-@[simp] lemma one_add_one : Usage.one + Usage.one = Usage.omega := rfl
-@[simp] lemma omega_add (u : Usage) : Usage.omega + u = Usage.omega := by cases u <;> rfl
-@[simp] lemma add_omega (u : Usage) : u + Usage.omega = Usage.omega := by cases u <;> rfl
-
-end Usage
-
-/-- The usage vector in which only the variable `x` is used, once. -/
-def single {n : Nat} (x : Fin n) : Fin n → Usage :=
-  fun y => if y = x then Usage.one else 0
-
--- [NOT IN PAPER ◀ END] usages
 
 /-! ## Simple constraints -/
 

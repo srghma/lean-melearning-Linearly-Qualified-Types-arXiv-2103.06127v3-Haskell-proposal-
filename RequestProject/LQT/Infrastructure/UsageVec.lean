@@ -1,6 +1,6 @@
 module
 
-public import RequestProject.LQT.Basic
+public import RequestProject.LQT.Infrastructure.Usage
 
 /-!
 # Usage vectors and renamings

@@ -1,32 +1,18 @@
 module
 
-public import RequestProject.LQT.Entailment
-public import RequestProject.LQT.Map
+public import RequestProject.LQT.Ch6_ConstraintInference.Wanted
+public import RequestProject.LQT.Ch5_QualifiedTypeSystem.EntailmentLemmas
 
 /-!
-# Wanted constraints and their entailment (§6.1, Figure 7)
+# Lemmas on wanted-constraint entailment (§6.1, Lemmas 6.1–6.3; Appendix B.6, Lemma B.5)
 
-Paper location: §6.1 "Wanted constraints" (grammar of `C`, scaling of wanted constraints,
-Figure 7 "Wanted-constraint entailment", Lemmas 6.1, 6.2, 6.3) and Appendix B.6 (Lemmas B.5
-and B.6).  The start and end of each part is marked by `-- [PAPER ▶ START]` /
-`-- [PAPER ◀ END]` comments.
+Paper location: §6.1 "Wanted constraints" (Lemma 6.1 "Inversion", Lemma 6.2 "Scaling",
+Lemma 6.3 "Inversion of scaling") and Appendix B.6 (Lemma B.5 "Weakening of wanteds").  The start
+and end of each part is marked by `-- [PAPER ▶ START]` / `-- [PAPER ◀ END]` comments.
 
-**Type variables.**  With type polymorphism, atomic constraints mention type variables (as in
-`RW n`).  Type variables are de Bruijn indices: `A k` is the set of atomic constraints with
-`k` type variables in scope, and atoms can be *weakened* to a larger scope (`Weakening`).
-Accordingly the constraint domain is a family of domains `D k` (`LDomain`), one for each
-number of type variables in scope.
-
-Wanted constraints `C ::= Q | C₁ ⊗ C₂ | C₁ & C₂ | π·∀ā.(Q ⊸ C)` are indexed by the number of
-type variables in scope.  The paper's implication `π·(Q ⊸ C)` comes with fresh type
-variables `ā` (rules G_Unpack and G_LetSig); here they are bound explicitly: `impl π j Q C`
-binds `j` type variables in `Q` and `C`.  Rule C_Impl then weakens the assumption:
-`Q ⊗ Q₂ ⊢ C` (with `Q` weakened under the `j` new variables) gives `Q ⊢ π·∀ā.(Q₂ ⊸ C)`.
-
-We prove Lemma 6.1 (inversion), Lemma 6.2 (scaling), Lemma 6.3 (inversion of scaling),
-Lemma B.5 (weakening of wanteds) and Lemma B.6 (`π·(ρ·C) = (π⋅ρ)·C`).  As for simple
-constraints, the impl-case of Lemma 6.1 and Lemma 6.3 only hold "up to `𝒟`" for lawful
-domains; the paper's exact statements are recovered for domains satisfying the paper's laws.
+As for simple constraints, the impl-case of Lemma 6.1 and Lemma 6.3 only hold "up to `𝒟`" for
+lawful domains; the paper's exact statements are recovered for domains satisfying the paper's
+laws (`LDomain.PaperLaws.inv_impl`, `LDomain.PaperLaws.wentails_scaling_inv`).
 -/
 
 @[expose] public section
@@ -35,140 +21,9 @@ namespace LQT
 
 open SConstr
 
--- [NOT IN PAPER ▶ START] type-variable levels: weakening of atoms and families of domains `LDomain`
---   (the paper has no explicit scopes for type variables)
-/-- A family of sets of atomic constraints, indexed by the number of type variables in scope,
-with weakening of atoms to a larger scope (the new variables are added at the end). -/
-class Weakening (A : Nat → Type) where
-  /-- Weakening of an atom by `j` new type variables. -/
-  wk : {k : Nat} → (j : Nat) → A k → A (k + j)
-
 variable {A : Nat → Type} [∀ k, DecidableEq (A k)] [Weakening A]
 
-/-- Weakening of a simple constraint by `j` new type variables. -/
-def SConstr.wk {k : Nat} (j : Nat) (Q : SConstr (A k)) : SConstr (A (k + j)) :=
-  Q.map (Weakening.wk j)
-
-@[simp] lemma SConstr.wk_zero {k j : Nat} : (0 : SConstr (A k)).wk j = 0 := map_zero _
-@[simp] lemma SConstr.wk_add {k j : Nat} (Q₁ Q₂ : SConstr (A k)) :
-    (Q₁ + Q₂).wk j = Q₁.wk j + Q₂.wk j := map_add _ _ _
-@[simp] lemma SConstr.wk_smul {k j : Nat} (π : Mult) (Q : SConstr (A k)) :
-    (π • Q).wk j = π • Q.wk j := map_smul _ _ _
-
-/-- A constraint domain for each number of type variables in scope. -/
-abbrev LDomain (A : Nat → Type) := (k : Nat) → Domain (A k)
-
-/-- Lawful families of domains: each domain is lawful, and duplicability and entailment are
-stable under weakening (the usual stability of entailment under renaming of type
-variables). -/
-structure LDomain.Lawful (D : LDomain A) : Prop where
-  lawful : ∀ k, (D k).Lawful
-  dup_wk : ∀ {k : Nat} (j : Nat) {q : A k}, q ∈ (D k).Dup → Weakening.wk j q ∈ (D (k + j)).Dup
-  entails_wk : ∀ {k : Nat} (j : Nat) {Q Q' : SConstr (A k)}, (D k).Entails Q Q' →
-    (D (k + j)).Entails (Q.wk j) (Q'.wk j)
-
--- [NOT IN PAPER ◀ END] type-variable levels
-
--- [PAPER ▶ START] §6.1 "Wanted constraints": the grammar `C ::= Q | C₁ ⊗ C₂ | C₁ & C₂ | π·(Q ⊸ C)`
---   (here with explicitly bound type variables `π·∀ā.(Q ⊸ C)`)
-/-- Wanted constraints `C` with `k` type variables in scope. -/
-inductive Wanted (A : Nat → Type) : Nat → Type
-  /-- A simple constraint `Q`. -/
-  | simple {k} : SConstr (A k) → Wanted A k
-  /-- Multiplicative conjunction `C₁ ⊗ C₂`. -/
-  | tensor {k} : Wanted A k → Wanted A k → Wanted A k
-  /-- Additive conjunction `C₁ & C₂`. -/
-  | amp {k} : Wanted A k → Wanted A k → Wanted A k
-  /-- Implication `π·∀ā.(Q ⊸ C)`, binding `j` type variables `ā`. -/
-  | impl {k} : Mult → (j : Nat) → SConstr (A (k + j)) → Wanted A (k + j) → Wanted A k
-
-namespace Wanted
-
--- [PAPER ◀ END] §6.1, grammar of wanted constraints
-
--- [PAPER ▶ START] §6.1: "We can define scaling over wanted constraints by recursion as follows"
---   (definition and its defining equations)
-/-- Scaling of wanted constraints. -/
-def smul : {k : Nat} → Mult → Wanted A k → Wanted A k
-  | _, π, simple Q => simple (π • Q)
-  | _, π, tensor C₁ C₂ => tensor (smul π C₁) (smul π C₂)
-  | _, .one, amp C₁ C₂ => amp C₁ C₂
-  | _, .omega, amp C₁ C₂ => tensor (smul .omega C₁) (smul .omega C₂)
-  | _, π, impl ρ j Q C => impl (π * ρ) j Q C
-
-instance {k : Nat} : SMul Mult (Wanted A k) := ⟨smul⟩
-
-variable {k : Nat}
-
-omit [Weakening A] in
-lemma smul_def (π : Mult) (C : Wanted A k) : π • C = smul π C := rfl
-
-omit [Weakening A] in
-@[simp] lemma smul_simple (π : Mult) (Q : SConstr (A k)) : π • simple Q = simple (π • Q) := rfl
-omit [Weakening A] in
-@[simp] lemma smul_tensor (π : Mult) (C₁ C₂ : Wanted A k) :
-    π • tensor C₁ C₂ = tensor (π • C₁) (π • C₂) := rfl
-omit [Weakening A] in
-@[simp] lemma one_smul_amp (C₁ C₂ : Wanted A k) : (Mult.one : Mult) • amp C₁ C₂ = amp C₁ C₂ :=
-  rfl
-omit [Weakening A] in
-@[simp] lemma omega_smul_amp (C₁ C₂ : Wanted A k) :
-    (Mult.omega : Mult) • amp C₁ C₂ = tensor ((Mult.omega : Mult) • C₁) ((Mult.omega : Mult) • C₂) :=
-  rfl
-omit [Weakening A] in
-@[simp] lemma smul_impl (π ρ : Mult) (j : Nat) (Q : SConstr (A (k + j))) (C : Wanted A (k + j)) :
-    π • impl ρ j Q C = impl (π * ρ) j Q C := rfl
-
--- [PAPER ◀ END] §6.1, scaling of wanted constraints
-
--- [NOT IN PAPER ▶ START] `1·C = C`
-omit [Weakening A] in
-@[simp] lemma one_smul (C : Wanted A k) : (Mult.one : Mult) • C = C := by
-  induction C with
-  | simple Q => rfl
-  | tensor C₁ C₂ ih₁ ih₂ => simp [ih₁, ih₂]
-  | amp C₁ C₂ _ _ => rfl
-  | impl ρ j Q C _ => simp
-
--- [NOT IN PAPER ◀ END] `1·C = C`
-
--- [PAPER ▶ START] Appendix B.6 › Lemma B.6: `π·(ρ·C) = (π⋅ρ)·C`
-omit [Weakening A] in
-/-- **Lemma B.6.** `π · (ρ · C) = (π ⋅ ρ) · C`. -/
-theorem smul_smul (π ρ : Mult) (C : Wanted A k) : π • (ρ • C) = (π * ρ) • C := by
-  induction C with
-  | simple Q => simp [_root_.smul_smul]
-  | tensor C₁ C₂ ih₁ ih₂ => simp [ih₁, ih₂]
-  | amp C₁ C₂ ih₁ ih₂ =>
-    cases π <;> cases ρ <;> simp_all
-  | impl σ j Q C _ => simp [mul_assoc]
-
--- [PAPER ◀ END] Appendix B.6 › Lemma B.6
-
-end Wanted
-
 namespace LDomain
-
--- [PAPER ▶ START] §6.1 › Figure 7 "Wanted-constraint entailment": rules C_Dom, C_Id, C_Tensor,
---   C_With, C_Impl
-/-- Wanted-constraint entailment `Q ⊢ C` (Figure 7). -/
-inductive WEntails (D : LDomain A) : {k : Nat} → SConstr (A k) → Wanted A k → Prop
-  /-- C_Dom -/
-  | dom {k} {Q₁ Q₂ : SConstr (A k)} {C} : (D k).Entails Q₁ Q₂ → WEntails D Q₂ C →
-      WEntails D Q₁ C
-  /-- C_Id -/
-  | id {k} (Q : SConstr (A k)) : WEntails D Q (.simple Q)
-  /-- C_Tensor -/
-  | tensor {k} {Q₁ Q₂ : SConstr (A k)} {C₁ C₂} : WEntails D Q₁ C₁ → WEntails D Q₂ C₂ →
-      WEntails D (Q₁ + Q₂) (.tensor C₁ C₂)
-  /-- C_With -/
-  | amp {k} {Q : SConstr (A k)} {C₁ C₂} : WEntails D Q C₁ → WEntails D Q C₂ →
-      WEntails D Q (.amp C₁ C₂)
-  /-- C_Impl (the assumption `Q₀` is weakened under the bound type variables) -/
-  | impl {k j} {Q₀ : SConstr (A k)} {Q₁ : SConstr (A (k + j))} {C} (π : Mult) :
-      WEntails D (Q₀.wk j + Q₁) C → WEntails D (π • Q₀) (.impl π j Q₁ C)
-
--- [PAPER ◀ END] §6.1 › Figure 7
 
 namespace Lawful
 

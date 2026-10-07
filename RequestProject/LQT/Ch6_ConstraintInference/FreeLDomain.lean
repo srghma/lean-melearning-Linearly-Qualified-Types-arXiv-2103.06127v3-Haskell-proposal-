@@ -1,7 +1,7 @@
 module
 
-public import RequestProject.LQT.FreeDomain
-public import RequestProject.LQT.Syntax
+public import RequestProject.LQT.Ch6_ConstraintInference.FreeDomain
+public import RequestProject.LQT.Ch5_QualifiedTypeSystem.Syntax
 
 /-!
 # A lawful family of domains (non-vacuity of `LDomain.Lawful`)

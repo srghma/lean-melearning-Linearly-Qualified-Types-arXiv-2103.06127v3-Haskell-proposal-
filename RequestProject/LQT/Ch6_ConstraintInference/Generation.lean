@@ -1,6 +1,7 @@
 module
 
-public import RequestProject.LQT.Typing
+public import RequestProject.LQT.Ch5_QualifiedTypeSystem.Typing
+public import RequestProject.LQT.Ch6_ConstraintInference.WantedLemmas
 
 /-!
 # Constraint generation (§6.2, Figure 8)

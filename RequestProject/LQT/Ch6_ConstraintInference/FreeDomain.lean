@@ -1,12 +1,13 @@
 module
 
-public import RequestProject.LQT.Entailment
+public import RequestProject.LQT.Ch5_QualifiedTypeSystem.EntailmentLemmas
 
 /-!
 # A concrete constraint domain (§6.3.2, Figure 10a)
 
 Paper location: §6.3.2 "An atomic-constraint solver", Figure 10 "A stripped-down constraint
-domain", sub-figure (a) "Entailment relation".  The start and end of each part is marked by
+domain", sub-figure (a) "Entailment relation", and the remark of §5.1 that `1·q ⊩ ω·q` does
+not hold (`freeDomain_not_one_entails_omega`).  The start and end of each part is marked by
 `-- [PAPER ▶ START]` / `-- [PAPER ◀ END]` comments.
 
 §6.3.2 of the paper offers "a stripped-down constraint domain" in which atomic
@@ -355,5 +356,17 @@ theorem fig10a_dupD {l : A} (hl : l ∈ S) :
 end Fig10a
 
 -- [PAPER ◀ END] §6.3.2 › Figure 10a (rules)
+
+-- [PAPER ▶ START] §5.1, remark after Figure 4: "Crucially, it is not the case that `1·q ⊩ ω·q`
+--   for `q ∈ 𝒟`" (see also `Domain.Lawful.one_entails_omega`)
+
+/-- In the stripped-down domain of Figure 10a, `1·q ⊩ ω·q` never holds, even for `q ∈ 𝒟`. -/
+theorem freeDomain_not_one_entails_omega (S : Set A) (q : A) :
+    ¬ (freeDomain S).Entails (SConstr.atom .one q) (SConstr.atom .omega q) := by
+  intro h
+  have := h.1 (by simp : q ∈ (SConstr.atom .omega q : SConstr A).U)
+  simp at this
+
+-- [PAPER ◀ END] §5.1, `1·q ⊮ ω·q` in the domain of Figure 10a
 
 end LQT

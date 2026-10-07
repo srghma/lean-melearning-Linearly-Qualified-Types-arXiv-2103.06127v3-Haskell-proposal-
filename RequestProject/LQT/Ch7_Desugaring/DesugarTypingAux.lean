@@ -1,12 +1,12 @@
 module
 
-public import RequestProject.LQT.Desugar
+public import RequestProject.LQT.Ch7_Desugaring.Desugar
 
 /-!
 # Correctness of desugaring: auxiliary lemmas
 
 Usage-vector arithmetic and the typing of the translations of `let`-bindings, used in the
-proof of Theorem 7.1 (`RequestProject/LQT/DesugarTyping.lean`).
+proof of Theorem 7.1 (`RequestProject/LQT/Ch7_Desugaring/DesugarTyping.lean`).
 
 Paper location: none.  The paper proves Theorem 7.1 (§7.2.3) with "It is straightforward, by
 induction"; this whole file consists of auxiliary lemmas for that induction.

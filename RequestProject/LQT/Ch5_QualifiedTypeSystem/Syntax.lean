@@ -1,6 +1,7 @@
 module
 
-public import RequestProject.LQT.Wanted
+public import RequestProject.LQT.Ch5_QualifiedTypeSystem.LeveledDomains
+public import RequestProject.LQT.Infrastructure.Usage
 
 /-!
 # Syntax of the qualified language (§5.2, Figure 5)

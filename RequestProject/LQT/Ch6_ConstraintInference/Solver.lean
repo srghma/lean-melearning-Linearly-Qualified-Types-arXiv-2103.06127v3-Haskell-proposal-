@@ -1,18 +1,24 @@
 module
 
-public import RequestProject.LQT.Generation
+public import RequestProject.LQT.Ch6_ConstraintInference.Generation
 
 /-!
-# Constraint solving (§6.3, Figures 9 and 10b)
+# Constraint solving (§6.3, Figure 9)
 
 Paper location: §6.3 "Constraint solving" (the atomic-solver judgement, Lemma 6.5 "Constraint
-solver soundness", Property 6.6 "Atomic-constraint solver soundness"), §6.3.1 "Constraint
-solver algorithm" (Figure 9 "Constraint solver") and §6.3.2 "An atomic-constraint solver"
-(Figure 10b "Atomic-constraint solver").  The start and end of each part is marked by
+solver soundness", Property 6.6 "Atomic-constraint solver soundness") and §6.3.1 "Constraint
+solver algorithm" (Figure 9 "Constraint solver").  The atomic solver of Figure 10b (§6.3.2) is
+in `AtomicSolver.lean`.  The start and end of each part is marked by
 `-- [PAPER ▶ START]` / `-- [PAPER ◀ END]` comments.
 
 The constraint solver `U ; D ; Lᵢ ⊢s C ⇝ Lₒ` (rules S_Atom, S_Mult, S_ImplOne, S_Add,
 S_ImplMany) is parameterised by an atomic-constraint solver `U ; D ; Lᵢ ⊢simp π·q ⇝ Lₒ`.
+Figure 9 has no rule for a simple wanted constraint other than a single atom `π·q`: the paper
+implicitly regards a simple constraint `(U, L)` as the multiplicative conjunction of its atoms.
+Since constraint generation emits `ε` (for data constructors and for variables with an
+unqualified type) and composite simple constraints (e.g. the constraint of an existential
+type), we make this convention explicit with two extra rules, S_Empty (`ε` consumes nothing)
+and S_Split (`Q₁ ⊗ Q₂` is solved like `C₁ ⊗ C₂` in S_Mult); Lemma 6.5 covers them.
 The linear contexts are lists; the linear part of the assumption of an implication is a
 multiset, which is added to the front of the lists in any order.
 
@@ -141,6 +147,15 @@ inductive Solve (D : LDomain A) (S : (k : Nat) → AtomSolver (A k)) :
         (l₀.filter (fun x => decide (x ∈ (D (k + j)).Dup)))
         (l₀.filter (fun x => decide (x ∉ (D (k + j)).Dup))) C [] →
       Solve D S U Dl Li (.impl .omega j Q₀ C) Li
+  -- (no rule in Figure 9: the paper treats a simple wanted constraint `(U, L)` as the
+  --   multiplicative conjunction of its atoms; the next two rules make this explicit)
+  /-- S_Empty (implicit in the paper): the empty constraint `ε` consumes nothing. -/
+  | empty {k} {U : Finset (A k)} {Dl Li : List (A k)} : Solve D S U Dl Li (.simple 0) Li
+  /-- S_Split (implicit in the paper): a simple constraint `Q₁ ⊗ Q₂` is solved as the
+  multiplicative conjunction of `Q₁` and `Q₂` (as in S_Mult). -/
+  | split {k} {U : Finset (A k)} {Dl Li Lo' Lo : List (A k)} {Q₁ Q₂ : SConstr (A k)} :
+      Solve D S U Dl Li (.simple Q₁) Lo' → Solve D S U Dl Lo' (.simple Q₂) Lo →
+      Solve D S U Dl Li (.simple (Q₁ + Q₂)) Lo
 
 -- [PAPER ◀ END] §6.3.1 › Figure 9
 
@@ -256,6 +271,42 @@ theorem solve_sound_strong {S : (k : Nat) → AtomSolver (A k)} (hS : ∀ k, (S 
       ext x <;> simp
     rw [e2]
     exact hk.weaken_dup hDup (hk.refl _)
+  | @empty k U Dl Li =>
+    have hk := hD.lawful k
+    refine ⟨le_refl _, (hD.wentails_simple_iff).mpr ?_⟩
+    have hDup : (⟨∅, (Dl : Multiset (A k))⟩ : SConstr (A k)).InDup (D k).Dup :=
+      fun x hx => hDl x hx
+    rw [tsub_self, add_zero]
+    have e2 : (⟨U, (Dl : Multiset (A k))⟩ : SConstr (A k)) = ⟨U, 0⟩ + ⟨∅, Dl⟩ := by
+      ext x <;> simp
+    rw [e2]
+    exact hk.weaken_dup hDup (hk.unr_entails_zero (⟨U, 0⟩ : SConstr (A k)))
+  | @split k U Dl Li Lo' Lo Q₁ Q₂ _ _ ih₁ ih₂ =>
+    have hk := hD.lawful k
+    obtain ⟨hle₁, h₁⟩ := ih₁ hDl
+    obtain ⟨hle₂, h₂⟩ := ih₂ hDl
+    refine ⟨hle₂.trans hle₁, ?_⟩
+    have hDup : (⟨∅, (Dl : Multiset (A k))⟩ : SConstr (A k)).InDup (D k).Dup :=
+      fun x hx => hDl x hx
+    have e1 : ((Li : Multiset (A k)) - Lo) =
+        ((Li : Multiset (A k)) - Lo') + ((Lo' : Multiset (A k)) - Lo) :=
+      (tsub_add_tsub_cancel hle₁ hle₂).symm
+    have e2 : (⟨U, (Dl : Multiset (A k)) + ((Li : Multiset (A k)) - Lo')⟩ : SConstr (A k)) +
+        ⟨U, (Dl : Multiset (A k)) + ((Lo' : Multiset (A k)) - Lo)⟩ =
+        (⟨∅, Dl⟩ + ⟨∅, Dl⟩) +
+          ⟨U, ((Li : Multiset (A k)) - Lo') + ((Lo' : Multiset (A k)) - Lo)⟩ := by
+      apply SConstr.ext
+      · simp
+      · simp only [add_L]; exact add_add_add_comm _ _ _ _
+    have hT : D.WEntails ⟨U, (Dl : Multiset (A k)) + ((Li : Multiset (A k)) - Lo)⟩
+        (.tensor (.simple Q₁) (.simple Q₂)) := by
+      refine .dom ?_ (.tensor h₁ h₂)
+      rw [e1, e2, AtomSolver.ctx_dup_split]
+      exact hk.tensor (hk.dup_dup hDup) (hk.refl _)
+    obtain ⟨X, E, Y, hE, hXEY, hX, hY⟩ := hD.inv_tensor hT
+    rw [hXEY]
+    exact (hD.wentails_simple_iff).mpr (hk.combine hE ((hD.wentails_simple_iff).mp hX)
+      ((hD.wentails_simple_iff).mp hY))
 
 -- [PAPER ◀ END] §6.3 › Lemma 6.5 (strengthened form)
 
@@ -293,83 +344,5 @@ theorem LDomain.Lawful.infer_sound {P : Type} {D : LDomain (Atom P)} (hD : D.Law
 -- [NOT IN PAPER ◀ END] end-to-end soundness
 
 end Leveled
-
-/-! ## The atomic-constraint solver of Figure 10b -/
-
-section
-
-variable {A : Type*} [DecidableEq A]
-
--- [PAPER ▶ START] §6.3.2 › Figure 10 "A stripped-down constraint domain", (b) "Atomic-constraint
---   solver" (one constructor per rule)
-/-- The atomic-constraint solver of Figure 10b, for the stripped-down domain in which the
-distinguished constraint `𝓛` (`l`, modelling `Linearly`) is duplicable. -/
-inductive simpleSolver (l : A) : AtomSolver A
-  /-- Atom_Many -/
-  | many {U Dl Li q} : q ∈ U → simpleSolver l U Dl Li .omega q Li
-  /-- Atom_OneL: use the most recent linear occurrence of `q`. -/
-  | oneL {U Dl q} (L₁ L₂ : List A) : q ∉ L₂ → q ∉ U →
-      simpleSolver l U Dl (L₁ ++ q :: L₂) .one q (L₁ ++ L₂)
-  /-- Atom_OneD -/
-  | oneD {U Dl Li} : l ∉ U → simpleSolver l U (Dl ++ [l]) Li .one l Li
-  /-- Atom_OneU -/
-  | oneU {U Dl Li q} : q ∈ U → q ∉ Dl ++ Li → simpleSolver l U Dl Li .one q Li
-
--- [PAPER ◀ END] §6.3.2 › Figure 10b
-
--- [NOT IN PAPER ▶ START] soundness of the solver of Figure 10b: the paper does not prove that it
---   satisfies Property 6.6
-/-- The atomic-constraint solver of Figure 10b is sound (in the strengthened sense, hence also
-in the sense of Property 6.6) for every lawful domain — in particular for the stripped-down
-domain `freeDomain {𝓛}`.  (Rule Atom_OneD only fires when `𝓛` is in the duplicable context
-`D`, whose elements are duplicable by the solver's invariant.) -/
-theorem simpleSolver_sound {D : Domain A} (hD : D.Lawful) (l : A) :
-    (simpleSolver l).Sound D := by
-  intro U Dl Li π q Lo hDl h
-  have hDup : (⟨∅, (Dl : Multiset A)⟩ : SConstr A).InDup D.Dup := fun x hx => hDl x hx
-  cases h with
-  | many hq =>
-    refine ⟨le_refl _, ?_⟩
-    rw [tsub_self, add_zero]
-    have e : (⟨U, (Dl : Multiset A)⟩ : SConstr A) = (⟨U, 0⟩ : SConstr A).unr + ⟨∅, Dl⟩ := by
-      ext x <;> simp
-    rw [e]
-    exact hD.weaken_dup hDup (hD.unr_entails_of_subset rfl (by simpa using hq))
-  | oneL L₁ L₂ hq₂ hqU =>
-    have hperm : ((L₁ ++ q :: L₂ : List A) : Multiset A) = ((L₁ ++ L₂ : List A) : Multiset A) + {q} := by
-      rw [Multiset.coe_eq_coe.mpr List.perm_middle, ← Multiset.cons_coe,
-        ← Multiset.singleton_add, add_comm]
-    refine ⟨by rw [hperm]; exact le_add_right (le_refl _), ?_⟩
-    rw [hperm, add_tsub_cancel_left]
-    have e : (⟨U, (Dl : Multiset A) + {q}⟩ : SConstr A) = ⟨U, 0⟩ + (atom .one q + ⟨∅, Dl⟩) := by
-      ext x <;> simp [add_comm]
-    rw [e]
-    exact hD.weaken_unr rfl (hD.weaken_dup hDup (hD.refl _))
-  | @oneD U Dl' Li hlU =>
-    refine ⟨le_refl _, ?_⟩
-    rw [tsub_self, add_zero]
-    have hDup' : (⟨∅, (Dl' : Multiset A)⟩ : SConstr A).InDup D.Dup :=
-      fun x hx => hDl x (List.mem_append_left _ hx)
-    have e : (⟨U, ((Dl' ++ [l] : List A) : Multiset A)⟩ : SConstr A) =
-        ⟨U, 0⟩ + (atom .one l + ⟨∅, Dl'⟩) := by
-      ext x
-      · simp
-      · simp [← Multiset.coe_add, add_comm]
-    rw [e]
-    exact hD.weaken_unr rfl (hD.weaken_dup hDup' (hD.refl _))
-  | oneU hqU _ =>
-    refine ⟨le_refl _, ?_⟩
-    rw [tsub_self, add_zero]
-    have e : (⟨U, (Dl : Multiset A)⟩ : SConstr A) = (⟨U, 0⟩ : SConstr A).unr + ⟨∅, Dl⟩ := by
-      ext x <;> simp
-    rw [e]
-    refine hD.weaken_dup hDup (hD.trans (hD.unr_entails_of_subset (X := atom .omega q) rfl
-      (by simpa using hqU)) ?_)
-    have := hD.omega_smul_entails (atom .one q)
-    rwa [smul_atom] at this
-
--- [NOT IN PAPER ◀ END] soundness of the solver of Figure 10b
-
-end
 
 end LQT

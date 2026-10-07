@@ -1,7 +1,7 @@
 module
 
-public import RequestProject.LQT.Core
-public import RequestProject.LQT.UsageVec
+public import RequestProject.LQT.Ch7_Desugaring.CoreCalculus
+public import RequestProject.LQT.Infrastructure.UsageVec
 
 /-!
 # Desugaring into the core calculus (§7.2.3, Figure 12b, Appendix A.2)

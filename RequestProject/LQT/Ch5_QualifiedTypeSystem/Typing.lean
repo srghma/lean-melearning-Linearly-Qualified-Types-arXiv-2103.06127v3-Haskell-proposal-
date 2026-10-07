@@ -1,6 +1,6 @@
 module
 
-public import RequestProject.LQT.Syntax
+public import RequestProject.LQT.Ch5_QualifiedTypeSystem.Syntax
 
 /-!
 # The qualified type system (§5.2, Figure 6)

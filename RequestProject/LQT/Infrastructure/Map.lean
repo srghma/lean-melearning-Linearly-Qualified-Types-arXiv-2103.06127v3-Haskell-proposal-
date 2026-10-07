@@ -1,6 +1,6 @@
 module
 
-public import RequestProject.LQT.Basic
+public import RequestProject.LQT.Ch5_QualifiedTypeSystem.SimpleConstraints
 
 /-!
 # Mapping over the atoms of a simple constraint

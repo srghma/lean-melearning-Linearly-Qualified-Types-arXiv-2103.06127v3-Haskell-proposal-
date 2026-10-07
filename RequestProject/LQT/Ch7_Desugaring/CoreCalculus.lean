@@ -1,6 +1,6 @@
 module
 
-public import RequestProject.LQT.Typing
+public import RequestProject.LQT.Ch5_QualifiedTypeSystem.Typing
 
 /-!
 # The core calculus (§7.1, Figure 11, Appendix A.1)

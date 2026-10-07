@@ -1,6 +1,6 @@
 module
 
-public import RequestProject.LQT.DesugarTypingAux
+public import RequestProject.LQT.Ch7_Desugaring.DesugarTypingAux
 
 /-!
 # Correctness of desugaring (Theorem 7.1)
