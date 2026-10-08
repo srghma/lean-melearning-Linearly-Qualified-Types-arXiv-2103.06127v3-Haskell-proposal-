@@ -1,3 +1,33 @@
+# Summary of changes for run 86d88b41-b644-4f33-a4e7-739211215850
+The new paper, `hlt.typ`, is *Linear Haskell* (Bernardy et al.). It is the paper that *Linearly Qualified Types* (LQT, formalized earlier in `RequestProject/LQT/`) builds on. The full answer to "what is the difference?" is in `COMPARISON.md`. I also formalized Linear Haskell's core calculus `λq→` in `RequestProject/LH/` (entry point `RequestProject/LH.lean`). The whole project builds with no `sorry`, and the main theorems use only the standard axioms.
+
+**The difference in short**
+- **Linear Haskell** puts linearity on the function arrow (`A →_π B`, with multiplicities `1` and `ω`), adds multiplicity polymorphism, constructor fields with multiplicities, and `case_π`. Its core calculus has **multiplicity polymorphism but no type polymorphism and no constraints**. Resources such as arrays are linear and must be threaded through every call by hand.
+- **LQT** adds **linear constraints** (capabilities like `RW n`, inferred by the compiler like type-class constraints) to remove that threading, plus a `Linearly` constraint for uniqueness. Its language has **type polymorphism and constraints but only the multiplicities `1` and `ω`**. LQT gives its meaning by translating into a variant of Linear Haskell's core calculus.
+- Lean shows the two agree when there are no multiplicity variables: Linear Haskell's closed multiplicities are exactly LQT's `{1, ω}`, with products preserved (`closedMultEquiv`, `closedMultEquiv_mul`), and the same holds for `{0, 1, ω}` with sums (`closedUsageEquiv_add`).
+
+**What is formalized from Linear Haskell**
+- Syntax and typing rules (Figures 5–6). As you asked, both kinds of variable use de Bruijn indices: `Tm S m n` has `m` multiplicity and `n` term variables, so `Tm S 0 0` is a closed term. Multiplicities are expressions taken modulo the paper's Definition 3.4.
+- Structural lemmas and the linear substitution lemma: from `Γ, x :_π A ⊢ t : B` and `Δ ⊢ s : A` we get `Γ + πΔ ⊢ t[s/x] : B`.
+- **Preservation, progress and type safety, but for a different semantics than the paper's.** The paper's own semantics and proofs are in its Appendix A, which is not in the supplied file. I used a standard call-by-name semantics based on substitution instead, so the paper's theorems themselves are not formalized. Reduction keeps the type and the multiplicity of every free variable unchanged.
+- The paper's examples and claims, all checked:
+  - `swap` is linear using `case₁`.
+  - `fst` needs `case_ω` and has no linear type for any `case_π`.
+  - `fst` on multiplicity-parameterized pairs is linear.
+  - `case_ω` gives `Unrestricted Pair ⊸ (Unrestricted Unit, Unrestricted Unit)`.
+  - `id` has both `Unit ⊸ Unit` and `Unit → Unit`, but `∀p. Unit →_p Unit` is rejected, as the paper says.
+  - `g f` is ill typed (no subtyping), while its η-expansion is fine, and so is `g 1 f` when `g` is multiplicity-polymorphic.
+  - Function composition gets `∀p q. … →_{p·q} …`.
+
+**Problems found in the Linear Haskell paper** (details in `COMPARISON.md`)
+1. Rule (abs) in Figure 6 concludes `A →_q B` with an unrelated `q`. Read literally, a non-linear function could get a linear type; I used the intended `A →_π B`. This is an argument from the rules, not a Lean theorem.
+2. Definition 3.4 calls the multiplicity equivalence "the smallest transitive and reflexive relation"; it also needs to be symmetric and a congruence, and the formalization includes both.
+3. In §2.2, the printed type of `foldl`, `(a ⊸ b ⊸ a) -> a ⊸ [b] ⊸ a`, does not fit `write :: MArray a ⊸ (Int, a) -> MArray a`. Lean proves the η-expansion of §3.5 cannot repair this (`eta_linear_of_unrestricted_untypable`). The fitting instance of the polymorphic `foldl` from §2.6 is `p = 1, q = ω`. Lists and `foldl` themselves are not formalized, since the calculus has no recursion.
+
+Two other limitations: the calculus has no type polymorphism, so the paper's polymorphic examples are instantiated at a unit type with monomorphic pairs. The arrays and I/O case studies are not formalized.
+
+`RequestProject/LH/README.md` maps each part of the paper to its Lean file. The Properties table now lists the new results as proved.
+
 # Summary of changes for run 3376555f-79c8-41da-9447-665460a21f79
 As you asked, I wrote the corrections to the paper in a separate document, `CORRECTIONS.md`, at the root of the project. The paper sources themselves (`linear-constraints.tex`, `2103.06127v3.typ`, `ott.tex`) are unchanged. `RequestProject.LQT` builds with no `sorry`, and the new theorems use only the standard axioms (`propext`, `Classical.choice`, `Quot.sound`).
 

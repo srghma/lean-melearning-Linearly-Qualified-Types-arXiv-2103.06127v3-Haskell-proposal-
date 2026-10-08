@@ -85,3 +85,32 @@ inductive HasType (S : Sig) : {m n : Nat} → (Fin n → S.Ty m) → (Fin n → 
 -- [PAPER ◀ END] §3.2 › Figure 6
 
 end LH
+
+namespace LH
+
+variable {S : Sig}
+
+-- [NOT IN PAPER ▶ START] convenience forms and inversion of the variable rule
+/-- Rule (var), with the type given up to equality. -/
+theorem HasType.var_of_eq {m n : Nat} {Γ : Fin n → S.Ty m} {u : Fin n → Usage m} {A : S.Ty m}
+    (x : Fin n) (v : Fin n → Usage m) (hu : u = (Usage.omega : Usage m) • v + Pi.single x 1)
+    (hA : Γ x = A) : HasType S Γ u (.var x) A :=
+  hA ▸ .var x v hu
+
+/-- Inversion of rule (var). -/
+theorem HasType.var_inv {m n : Nat} {Γ : Fin n → S.Ty m} {u : Fin n → Usage m} {A : S.Ty m}
+    {x : Fin n} (h : HasType S Γ u (.var x) A) :
+    A = Γ x ∧ ∃ v, u = (Usage.omega : Usage m) • v + Pi.single x 1 := by
+  cases h with
+  | var x v hu => exact ⟨rfl, v, hu⟩
+
+/-- Inversion of rule (app). -/
+theorem HasType.app_inv {m n : Nat} {Γ : Fin n → S.Ty m} {u : Fin n → Usage m} {B : S.Ty m}
+    {t s : Tm S m n} (h : HasType S Γ u (.app t s) B) :
+    ∃ u₁ u₂ π A, HasType S Γ u₁ t (.arr A π B) ∧ HasType S Γ u₂ s A ∧
+      u = u₁ + Usage.nz π • u₂ := by
+  cases h with
+  | app h₁ h₂ hu => exact ⟨_, _, _, _, h₁, h₂, hu⟩
+-- [NOT IN PAPER ◀ END]
+
+end LH
