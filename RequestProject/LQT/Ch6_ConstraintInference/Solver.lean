@@ -129,13 +129,16 @@ inductive Solve (D : LDomain A) (S : (k : Nat) → AtomSolver (A k)) :
   | add {k} {U : Finset (A k)} {Dl Li Lo : List (A k)} {C₁ C₂ : Wanted A k} : Solve D S U Dl Li C₁ Lo → Solve D S U Dl Li C₂ Lo →
       Solve D S U Dl Li (.amp C₁ C₂) Lo
   /-- S_ImplOne: the linear assumptions `L₀` (listed in some order `l₀`) are split according to
-  membership in `𝒟` and added to the front of the (weakened) contexts. -/
+  membership in `𝒟`.  The duplicable ones are added to `D`; the linear ones are added at the
+  *most recent* end of the linear context, which is the right end of the list: that is the
+  occurrence rule Atom_OneL of Figure 10b (`L = L₁, q, L₂` with `q ∉ L₂`) picks, as the paper's
+  discussion of the example `f = linearly $ …` (§6.3.2) requires. -/
   | implOne {k j} {U : Finset (A k)} {Dl Li Lo : List (A k)} {Q₀ : SConstr (A (k + j))} {C : Wanted A (k + j)}
       (l₀ : List (A (k + j))) :
       (l₀ : Multiset (A (k + j))) = Q₀.L →
       Solve D S (U.image (Weakening.wk j) ∪ Q₀.U)
         (l₀.filter (fun x => decide (x ∈ (D (k + j)).Dup)) ++ Dl.map (Weakening.wk j))
-        (l₀.filter (fun x => decide (x ∉ (D (k + j)).Dup)) ++ Li.map (Weakening.wk j)) C
+        (Li.map (Weakening.wk j) ++ l₀.filter (fun x => decide (x ∉ (D (k + j)).Dup))) C
         (Lo.map (Weakening.wk j)) →
       (Lo : Multiset (A k)) ≤ Li →
       Solve D S U Dl Li (.impl .one j Q₀ C) Lo
@@ -228,14 +231,15 @@ theorem solve_sound_strong {S : (k : Nat) → AtomSolver (A k)} (hS : ∀ k, (S 
     have e : (⟨U.image (Weakening.wk j) ∪ Q₀.U,
         ((l₀.filter (fun x => decide (x ∈ (D (k + j)).Dup)) ++ Dl.map (Weakening.wk j) :
           List _) : Multiset (A (k + j))) +
-        (((l₀.filter (fun x => decide (x ∉ (D (k + j)).Dup)) ++ Li.map (Weakening.wk j) :
+        (((Li.map (Weakening.wk j) ++ l₀.filter (fun x => decide (x ∉ (D (k + j)).Dup)) :
           List _) : Multiset (A (k + j))) - ((Lo.map (Weakening.wk j) : List _) : Multiset _))⟩ :
           SConstr (A (k + j))) =
         (⟨U, (Dl : Multiset (A k)) + ((Li : Multiset (A k)) - Lo)⟩ : SConstr (A k)).wk j + Q₀ := by
       apply SConstr.ext
       · simp [SConstr.wk]
       · simp only [SConstr.wk, add_L, map_L, ← Multiset.coe_add]
-        rw [add_tsub_assoc_of_le hle', hmap, ← hsplit, Multiset.map_add, ← Multiset.map_coe]
+        rw [add_comm ((Li.map (Weakening.wk j) : List _) : Multiset (A (k + j))),
+          add_tsub_assoc_of_le hle', hmap, ← hsplit, Multiset.map_add, ← Multiset.map_coe]
         generalize ((Li : Multiset (A k)) - Lo).map (Weakening.wk j) = X
         abel
     rw [e] at h

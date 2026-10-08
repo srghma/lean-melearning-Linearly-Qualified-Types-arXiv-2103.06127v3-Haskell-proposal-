@@ -39,16 +39,25 @@ delimited by a pair of comments
 and material that has no counterpart in the paper (de Bruijn infrastructure, helper lemmas,
 non-vacuity checks, findings about the paper) is delimited by
 `-- [NOT IN PAPER ▶ START]` / `-- [NOT IN PAPER ◀ END]`.  Search for `[PAPER` to list them.
-Sections 1, 4, 8, 9, 10 of the paper (introduction, applications, implementation in GHC,
-related work, conclusion) contain no formal material; of §3 (examples), the examples of §3.1
-and §3.2 are formalized in `Ch3_LinearConstraints/`.  See "What is not formalized, and why" below.
+Sections 8, 9, 10 of the paper (implementation in GHC, related work, conclusion) contain no
+formal material.  The examples of §3.1 and §3.2 are formalized in `Ch3_LinearConstraints/`; the
+programs of §1, §3.2 (with the `linearly` primitive), §4 (Figures 1–3) and the example `f` of
+§6.3.2 are written in the formal language and checked with the inference algorithm in
+`Ch4_MemoryOwnership/`.  See "What is not formalized, and why" below.
 
 | Paper | Lean file | Main declarations |
 |---|---|---|
+| §2, Definition 2.1 "Consume exactly once" (syntactic reading) and the meaning of `⊸` | `Ch2_Background/ConsumeExactlyOnce.lean` | `Consumes`, `Consumes.typed`, `linear_arrow_meaning`, `unrestricted_arrow_meaning` |
 | §2.1 "Multiplicities" | `Ch2_Background/Multiplicities.lean` | `Mult` |
 | §3.1 "Minimal Examples": the setting | `Ch3_LinearConstraints/ExampleSetting.lean` | `exSig`, `exΓ`, `exD`, `givenC` |
 | §3.1 "Minimal Examples" (Dithering, Neglecting, Overusing, `notNeglecting`) | `Ch3_LinearConstraints/MinimalExamples.lean` | `notNeglecting_typed`, `notNeglecting_inferred`, `notNeglecting_typed_by_inference`, `neglecting_rejected`, `overusing_rejected`, `dithering_rejected` |
 | §3.2 "Restricting to a linear context with `Linearly`" (`bad`, `badToo`, two arrays from one `Linearly`) | `Ch3_LinearConstraints/Linearly.lean` | `badToo_rejected`, `badToo_not_inferred`, `twoArrays_typed`, `twoArrays_inferred`, `bad_not_inferred`, `bad_omega_typed` |
+| §1 `read2AndDiscard`; §3 Figure 1b; §4.1, §4.2 (APIs of arrays, references, borrowing, slices): the setting | `Ch4_MemoryOwnership/Setting.lean` | `Mem.Pred`, `Mem.memSig`, `Mem.memΓ`, `Mem.memD`, `Mem.Infers`, `Mem.Infers.typed` |
+| §1 `read2AndDiscard` (with linear constraints) | `Ch4_MemoryOwnership/Read2AndDiscard.lean` | `read2AndDiscard_inferred`, `read2AndDiscard_typed` |
+| §3.2 the `linearly` primitive (two arrays from one `Linearly`); §4.1 references | `Ch4_MemoryOwnership/Linearly.lean` | `twoArraysLinearly_inferred/_typed`, `refExample_inferred/_typed` |
+| §6.3.2 the example `f = linearly $ …` and the choice of the most recent occurrence (rule Atom_OneL) | `Ch4_MemoryOwnership/Linearly.lean` | `fLinearly_inferred/_typed`, `simpleSolve_most_recent` |
+| §4.2.2, Figure 2 "Swapping two elements of an array" | `Ch4_MemoryOwnership/Swap.lean` | `swapBody`, `swap_inferred`, `swap_typed` |
+| §4.2.3, Figure 3 "In-place quicksort" | `Ch4_MemoryOwnership/QuickSort.lean` | `sort_inferred`, `partition_inferred`, `go_inferred` (and `_typed`) |
 | §5.1, Definition 5.1 "Atomic constraints" | `Ch5_QualifiedTypeSystem/Syntax.lean` | `Atom` |
 | §5.1, Definition 5.2 "Simple constraints" | `Ch5_QualifiedTypeSystem/SimpleConstraints.lean` | `SConstr`, `SConstr.atom` |
 | §5.1, scaling `π·Q` (before Lemma 5.4) | `Ch5_QualifiedTypeSystem/SimpleConstraints.lean` | `SConstr.smul` |
@@ -77,7 +86,7 @@ and §3.2 are formalized in `Ch3_LinearConstraints/`.  See "What is not formaliz
 | §6.3.2, Figure 10a "Entailment relation" | `Ch6_ConstraintInference/FreeDomain.lean` | `freeEntails`, `freeDomain`, `fig10a_*` |
 | §6.3.2, Figure 10b "Atomic-constraint solver" | `Ch6_ConstraintInference/AtomicSolver.lean` | `simpleSolver`, `simpleSolver_sound` |
 | §6.3.2, "the solver of Figure 10b is deterministic ... does not guess" | `Ch6_ConstraintInference/AtomicSolverProps.lean` | `simpleSolve`, `simpleSolver_iff_simpleSolve`, `simpleSolver_deterministic`, `simpleSolver_nondeterministic_without_invariant` |
-| §6.3.2, incompleteness of the solver (`ambiguous1`) | `Ch6_ConstraintInference/SolverIncompleteness.lean` | `ambiguousW`, `ambiguous_entailed`, `ambiguous_not_solved` |
+| §6.3.2, incompleteness of the solver (`ambiguous1`, `ambiguous2`) | `Ch6_ConstraintInference/SolverIncompleteness.lean` | `ambiguousW`, `ambiguous_entailed`, `ambiguous_not_solved`, `ambiguous2W`, `ambiguous2_entailed`, `ambiguous2_not_solved` |
 | §7.1, Figure 11 "Core calculus (subset)"; App. A.1, Figures 13 and 14 | `Ch7_Desugaring/CoreCalculus.lean` | `CTy`, `CScheme`, `CTm`, `CHasType` |
 | §7.2.1 "Evidence", Figure 12a "Evidence passing" | `Ch7_Desugaring/CoreCalculus.lean` | `CTy.ev`, `Prim`, `PrimTy` |
 | §7.2.2 "Translating types" | `Ch7_Desugaring/CoreCalculus.lean` | `Ty.ds`, `Scheme.ds` |
@@ -92,24 +101,42 @@ and §3.2 are formalized in `Ch3_LinearConstraints/`.  See "What is not formaliz
 
 Files with no counterpart in the paper: everything in `Infrastructure/` (`Usage.lean`,
 `UsageVec.lean`, `Map.lean`), and `Ch5_QualifiedTypeSystem/LeveledDomains.lean`, `Ch5_QualifiedTypeSystem/TypingInv.lean`,
-`Ch6_ConstraintInference/GenerationInv.lean`, `Ch6_ConstraintInference/FreeLDomain.lean`, `Ch7_Desugaring/DesugarTypingAux.lean`.
+`Ch6_ConstraintInference/GenerationInv.lean`, `Ch6_ConstraintInference/GenKit.lean`,
+`Ch6_ConstraintInference/FreeLDomain.lean`, `Ch4_MemoryOwnership/Kit.lean`,
+`Ch7_Desugaring/DesugarTypingAux.lean`.
 
 ### What is not formalized, and why
 
 * **Definition 2.1 "Consume exactly once"** (§2) is a statement about the run-time behaviour of
-  programs; the paper gives no operational semantics for its languages, so there is nothing
-  formal to state it about.
-* **§4 (capabilities, arrays, borrowing, slices, quicksort), Figures 1–3, and the
-  `read2AndDiscard` example of §1** are Haskell programs and library interfaces illustrating the
-  design; they use features outside the formal language (type classes, `IO`, type-level
-  indices, records of capabilities).  The small programs of §3.1 and §3.2 are formalized
-  (`Ch3_LinearConstraints/MinimalExamples.lean`, `Ch3_LinearConstraints/Linearly.lean`); `linearly :: (Linearly ⊸ Ur r) ⊸ Ur r` itself is
-  higher-rank (a qualified type as an argument) and is not expressible in the formal language,
-  so the `Linearly` examples start from the given linear assumption `1·𝓛` it provides.
-* **The examples `f = linearly $ ...` (choice of the most recent `RW n`) and `ambiguous2` of
-  §6.3.2** are about which copy of a constraint is consumed (its run-time evidence), which the
-  provability-level judgements cannot distinguish; `ambiguous1` is formalized at the level of its
-  wanted constraint (see deviation 10).
+  programs, and the paper gives no operational semantics.  We formalize its *syntactic*
+  reading instead (`Ch2_Background/ConsumeExactlyOnce.lean`): `Consumes Γ x τ e` follows the
+  clauses of the definition (evaluate an atomic value; apply a function to one argument and
+  consume the result; pattern-match a pair and consume both components; pattern-match a data
+  value and consume its linear components, of which `Ur τ` has none), and we prove that such a
+  consumer is well typed in the core calculus and uses `x` exactly once (`Consumes.typed`), and
+  that if `f : τ₁ ⊸ τ₂` and `f y` is consumed exactly once then `y` is used exactly once
+  (`linear_arrow_meaning`).  The run-time statement itself is not formalized.
+* **The programs of §1, §3.2, §4 and §6.3.2** are written in the formal language with three
+  encodings, described in `Ch4_MemoryOwnership/Setting.lean`: (i) an argument of qualified type
+  `Q =⚬ τ` (the argument of `linearly`) is passed as a linear function from *evidence*
+  `Evid Q = ∃. () ⇐ Q`, which the continuation unpacks; (ii) the rank-2 continuation of
+  `lendMut` is replaced by the direct style `lendMut … : ∃ p. Ur (AtomRef a p) ⧀ (RW p, Lent n p)`
+  and `unlendMut : (RW p, Lent n p) =⚬ AtomRef a p -> () ⧀ RW n`; (iii) recursive definitions are
+  checked against their signature, which is in the context (as GHC does), and the local `go` of
+  Figure 3 is lambda-lifted.  `PArray a n` with `a :: Location -> Type` is specialised to
+  `UArray a n`, the guards are nested `case`s on `Bool`, and the type classes, `IO` and the
+  operational content (allocation, mutation) are not modelled: the theorems are about
+  acceptance by the inference algorithm and well-typedness.  Not formalized: `lend` (the
+  read-only borrowing primitive, which no example uses), the plain Linear Haskell API of
+  Figure 1a, and rejection examples in this setting other than those of
+  `Ch4_MemoryOwnership/PrintedCode.lean` (the rejection examples of §3 are in
+  `Ch3_LinearConstraints/`).
+* **Which copy of a constraint is consumed** (the discussion of `f = linearly $ …` in §6.3.2)
+  concerns the run-time evidence: copies of an atom are equal values, so the provability-level
+  judgements cannot tell them apart.  We prove that `f` is accepted, and that the atomic solver
+  consumes a local copy rather than an outer one (`simpleSolve_most_recent`; for this the
+  local linear assumptions of an implication are put at the most recent end of the list, see
+  deviation 12).
 * **§8 (implementation in GHC, superclasses, equality constraints, inferring pack/unpack),
   §9, §10** contain no formal statements.
 * **Rule C_Top (`Q ⊢ ⊤`)** appears in the ott source but, like the paper (which explains in a
@@ -118,8 +145,9 @@ Files with no counterpart in the paper: everything in `Infrastructure/` (`Usage.
 
 ## Files
 
-The directories follow the sections of the paper.  Sections 1 and 4 (introduction, memory
-ownership API) and 8–10 have no formal content and so no directory.  The material of
+The directories follow the sections of the paper.  The examples of §1 (introduction) and of §4
+(memory ownership) are in `Ch4_MemoryOwnership/`; §8–10 have no formal content and so no
+directory.  The material of
 Appendix A (full core calculus and desugaring) lives with §7, and each proof of Appendix B
 lives with the lemma it proves.  All declarations are in the namespace `LQT` (the examples in
 `LQT.Examples`), whatever their directory.
@@ -128,10 +156,19 @@ lives with the lemma it proves.  All declarations are in the namespace `LQT` (th
 |---|---|
 | **`Ch2_Background/`** | **§2 "Background: Linear Haskell"** |
 | `Multiplicities.lean` | multiplicities `1`, `ω` and their product (§2.1) |
+| `ConsumeExactlyOnce.lean` | Definition 2.1, syntactic reading, and the meaning of the linear arrow |
 | **`Ch3_LinearConstraints/`** | **§3 "Working with linear constraints"** |
 | `ExampleSetting.lean` | the setting of the examples (constraint `C`, `useC`, `const`, data types); reused by later examples |
 | `MinimalExamples.lean` | the minimal examples of §3.1: one accepted (also by the inference algorithm), three rejected |
 | `Linearly.lean` | the `Linearly` examples of §3.2 (`bad`, `badToo`, two arrays) |
+| **`Ch4_MemoryOwnership/`** | **§1, §3.2, §4 "Application: memory ownership", the example `f` of §6.3.2** |
+| `Setting.lean` | predicates `Read`, `Write`, `Slices`, `Linearly`; data types; the APIs of Figure 1b, §3.2, §4.1, §4.2 as the context `memΓ`; the judgement `Infers` (generation + solving) and its soundness |
+| `Kit.lean` | term helpers, normalisation and solver tactics used to check the examples (no counterpart in the paper) |
+| `Read2AndDiscard.lean` | `read2AndDiscard` (§1) accepted and well typed |
+| `Linearly.lean` | `linearly` (§3.2), the example `f` (§6.3.2), an atomic-reference program (§4.1); `simpleSolve_most_recent` |
+| `Swap.lean` | Figure 2 (`swap`) accepted and well typed |
+| `QuickSort.lean` | Figure 3 (`sort`, `partition`, `go`) accepted and well typed |
+| `PrintedCode.lean` | the code of Figure 1b / §6.3.2 / Figure 3 *as printed* is ill typed: a variable bound by `pack` cannot be passed to an unrestricted argument (`unpack_then_unrestricted_rejected`, `free_after_unpack_rejected`, `sort_printed_rejected`) |
 | **`Ch5_QualifiedTypeSystem/`** | **§5 "A qualified type system for linear constraints"** |
 | `SimpleConstraints.lean` | simple constraints `Q = (U, L)`, `ε`, `⊗`, scaling (§5.1 Def. 5.2, Lemma B.1) |
 | `Entailment.lean` | constraint domains, the laws of Fig. 4 and the repaired laws, Lemmas B.2, B.3 |
@@ -148,12 +185,13 @@ lives with the lemma it proves.  All declarations are in the namespace `LQT` (th
 | `Generation.lean` | constraint generation (Fig. 8), **Lemma 6.4** (`gen_sound`) |
 | `GenerationInv.lean` | inversion lemmas for constraint generation |
 | `GenLetGen.lean` | constraint generation extended with rule G_LetGen of the ott source, and its soundness (`genG_sound`) |
+| `GenKit.lean` | admissible variants of the generation rules used to write derivations (no counterpart in the paper) |
 | `Solver.lean` | constraint solver (Fig. 9), **Lemma 6.5** (`solve_sound`), Property 6.6, end-to-end `infer_sound` |
 | `FreeDomain.lean` | the stripped-down domain of §6.3.2 / Fig. 10a; satisfiability of the laws |
 | `FreeLDomain.lean` | lawful leveled domains exist (`freeLDomain_lawful`, `predLDomain_lawful`) |
 | `AtomicSolver.lean` | the atomic solver of Fig. 10b and its soundness (`simpleSolver_sound`) |
 | `AtomicSolverProps.lean` | the atomic solver of Fig. 10b as a deterministic function (§6.3.2) |
-| `SolverIncompleteness.lean` | incompleteness of the solver (`ambiguous1`, §6.3.2) |
+| `SolverIncompleteness.lean` | incompleteness of the solver (`ambiguous1`, `ambiguous2`, §6.3.2) |
 | **`Ch7_Desugaring/`** | **§7 "Desugaring"** (and Appendix A) |
 | `CoreCalculus.lean` | linear core calculus (Fig. 11 / App. A.1, Figs. 13–14) with polymorphic `let` and existential pairs; evidence and translation of types (§7.2.1, §7.2.2) |
 | `Desugar.lean` | desugaring `⟦d⟧_z` (Fig. 12b / App. A.2, Fig. 15) |
@@ -182,6 +220,14 @@ lives with the lemma it proves.  All declarations are in the namespace `LQT` (th
   remarks of §6.1 and §6.3.2 (`Ch6_ConstraintInference/WantedExamples.lean`,
   `Ch6_ConstraintInference/SolverIncompleteness.lean`).
 * `LQT.simpleSolver_deterministic`: the atomic solver of Fig. 10b never has to guess.
+* `LQT.Mem.read2AndDiscard_inferred`, `swap_inferred`, `sort_inferred`, `partition_inferred`,
+  `go_inferred`, `twoArraysLinearly_inferred`, `fLinearly_inferred`, `refExample_inferred`: the
+  programs of §1, §3.2, §4 (Figures 2 and 3) and §6.3.2 are accepted by the inference algorithm
+  (constraint generation, Figure 8, then the solver of Figures 9 and 10b); the `_typed`
+  corollaries give typing derivations in the system of Figure 6.
+* `LQT.Examples.ambiguous2_entailed` / `ambiguous2_not_solved`: `ambiguous2` is accepted by the
+  qualified type system's entailment but not by the solver.
+* `LQT.Consumes.typed`, `LQT.linear_arrow_meaning`: the syntactic reading of Definition 2.1.
 * `LQT.Domain.PaperLaws.dup_eq_empty`, `LQT.paper_scaling_inv_fails`,
   `LQT.freeDomain_lawful`, `LQT.freeLDomain_lawful`, `LQT.predLDomain_lawful` (see below).
 
@@ -245,3 +291,20 @@ lives with the lemma it proves.  All declarations are in the namespace `LQT` (th
     Figure 6 accepts the version with `π = ω` (`bad_omega_typed`): rule E_Let lets `arr` be given
     the qualified type `𝓛 ⇒ MArray`, so each use of `arr` re-runs `new 5` with its own copy of
     `𝓛` and no array is actually shared.
+12. **Rule S_ImplOne: order of the linear context.**  The paper says S_ImplOne "adds the new
+    hypotheses on the front of the list" and that Atom_OneL uses "the most recent occurrence";
+    but Atom_OneL, as printed (`L = L₁, q, L₂` with `q ∉ L₂`), consumes the *last* occurrence.
+    For the two to agree, we add the local linear hypotheses at the end of the list
+    (`Li.map wk ++ local`), so the last occurrence is the most recent one
+    (`simpleSolve_most_recent`).
+13. **The APIs of §1 and §4.**  `new` and `newRef` return their array/reference in `Ur`
+    (`∃ n. Ur (UArray a n) ⧀ RW n`), as the code of §6.3.2 uses it (`pack (Ur arr) = new 10`),
+    whereas Figure 1b writes `∃ n. UArray a n ⧀ RW n`: the variable bound by `pack` is linear
+    (rule E_Unpack), and the array is then passed to unrestricted arguments (`free arr`), which
+    the type system rejects.  For the same reason `partition` and `go` (Figure 3) return their
+    index as `Ur Int`: in Figure 3, `pack pivotIdx = partition arr` binds `pivotIdx` linearly and
+    passes it to the unrestricted argument of `split`.  `if len <= 1` is written with `>` and the
+    branches swapped.
+    That the printed versions are ill typed is proved in `Ch4_MemoryOwnership/PrintedCode.lean`
+    (`free_after_unpack_rejected`, `sort_printed_rejected`).  Proposed wording for correcting
+    the paper on this and the other points is in `CORRECTIONS.md` at the root of the project.

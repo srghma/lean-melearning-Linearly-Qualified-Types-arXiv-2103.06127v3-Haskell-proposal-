@@ -13,9 +13,10 @@ Paper location: §3.2 "Restricting to a linear context with `Linearly`" (the pro
 end of each part is marked by `-- [PAPER ▶ START]` / `-- [PAPER ◀ END]` comments.
 
 The examples use `new :: Linearly ⊸ Int → MArray`, in the stripped-down domain of Figure 10a in
-which `Linearly` is duplicable.  The `linearly` primitive itself is not modelled (its argument
-has a qualified type the formal language cannot express); the examples start from the linear
-`Linearly` it would provide.
+which `Linearly` is duplicable.  These examples start from the linear `Linearly` assumption that
+the `linearly` primitive provides; the primitive itself (whose argument has a qualified type) is
+modelled, through an encoding of its argument as a function from evidence, in
+`Ch4_MemoryOwnership/Linearly.lean`.
 
 * `badToo_rejected`, `badToo_not_inferred`: `badToo = Ur (new 5)` is rejected by the type system
   and by inference;

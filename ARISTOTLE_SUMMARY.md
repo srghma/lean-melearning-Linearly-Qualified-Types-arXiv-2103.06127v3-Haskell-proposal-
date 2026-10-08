@@ -1,3 +1,67 @@
+# Summary of changes for run 3376555f-79c8-41da-9447-665460a21f79
+As you asked, I wrote the corrections to the paper in a separate document, `CORRECTIONS.md`, at the root of the project. The paper sources themselves (`linear-constraints.tex`, `2103.06127v3.typ`, `ott.tex`) are unchanged. `RequestProject.LQT` builds with no `sorry`, and the new theorems use only the standard axioms (`propext`, `Classical.choice`, `Quot.sound`).
+
+**What `CORRECTIONS.md` contains.** For each problem it gives the location in the `.tex` (approximate line numbers), what goes wrong, the Lean results that back it, and replacement wording.
+1. **Figure 1b, the type of `new`.** Unpacking binds the array linearly, so it can't then be passed to `free`, `read` or `write`, which take it unrestricted. Fix: `new :: Linearly =⚬ Int -> ∃ n. Ur (UArray a n) ⧀ RW n`, and the same change for `newRef` in §4.1. Two new sentences are proposed for §3.
+2. **Figure 3, `pack pivotIdx`.** This binds `pivotIdx` linearly, and it is then passed to the unrestricted `Int` argument of `split`. Fix: `partition` and `go` return `Ur Int`, and `sort` uses `pack (Ur pivotIdx)`. A sentence for the text is included.
+3. **§6.3.2, S_ImplOne vs Atom_OneL.** The text says S_ImplOne adds new hypotheses "on the front", but Atom_OneL as printed consumes the *last* occurrence. Two consistent fixes are given; the formalization uses option A (append at the end).
+4. Other discrepancies, with proposed wording for each:
+   - Figure 4, law (7), forces the set of duplicable constraints to be empty.
+   - Lemma 5.5 is false once that set is non-empty.
+   - Atom_OneD as printed solves any `1·q`, which is unsound.
+   - Figure 9 has no rule for `ε` or for a tensor of atoms.
+   - `bad` is accepted by the declarative type system.
+   - The arrow in `giveC`'s type should be linear.
+
+**New Lean proofs** (`RequestProject/LQT/Ch4_MemoryOwnership/PrintedCode.lean`). Until now, items 1 and 2 were argued only in prose. These theorems prove that the code as printed has no typing derivation in the system of Figure 6, for every given constraint, type and usage. Because inference is sound, the inference algorithm rejects it too.
+- `unpack_then_unrestricted_rejected`: the general fact. `let pack x = e₁ in f x` is ill typed whenever `f` takes its argument unrestricted.
+- `free_after_unpack_rejected`: `let pack arr = e in free arr` is ill typed for every expression `e`, so in particular for `new 10` at Figure 1b's type.
+- `sort_printed_rejected`: Figure 3's `let pack pivotIdx = partition arr; pack (Ur (l, r)) = split arr pivotIdx in …` is ill typed, whatever stands in place of `partition arr` and whatever the rest of `sort` is.
+
+The corrected programs were already shown to be accepted (`fLinearly_inferred`, `sort_inferred`, among others).
+
+The new file is imported from `RequestProject/LQT.lean`. `RequestProject/LQT/README.md` links to `CORRECTIONS.md`, and the three theorems are in the Properties table, marked proved.
+
+# Summary of changes for run d6ad55dc-f047-4765-b608-bf5b9e042591
+The items left open last time are now formalized, except the run-time content noted below. Everything uses de Bruijn indices for both term and type variables. `lake build RequestProject.LQT` succeeds with no `sorry`, and the new theorems use only the axioms `propext`, `Classical.choice` and `Quot.sound`.
+
+**Definition 2.1, "Consume exactly once"** (`Ch2_Background/ConsumeExactlyOnce.lean`). The paper gives no operational semantics, so the run-time statement itself can't be formalized. Instead I formalized the definition's clauses as a syntactic predicate `Consumes Γ x τ e` in the core calculus (evaluate a base value; apply a function to one argument and consume the result; pattern-match a pair and consume both parts; pattern-match `Ur`). Proved:
+- `Consumes.typed`: every such consumer is well typed and uses `x` exactly once, and no other variable linearly.
+- `linear_arrow_meaning`: if `f : τ₁ ⊸ τ₂` and `f y` is consumed exactly once, then `y` is used exactly once. With an unrestricted arrow, `y` is used with multiplicity ω (`unrestricted_arrow_meaning`).
+
+**§1, §3.2, §4 and Figures 1–3** (`Ch4_MemoryOwnership/`). `Setting.lean` writes the APIs of Figure 1b, `linearly`, references, `split`/`join`/`lendMut` and the quicksort signatures as a context `memΓ`. `Infers` means "accepted by constraint generation (Figure 8) followed by the solver (Figures 9/10b)". `Infers.typed` turns that into a typing derivation in Figure 6. These programs are accepted, each with a `_typed` corollary:
+- `read2AndDiscard_inferred` (§1)
+- `swap_inferred` (Figure 2)
+- `sort_inferred`, `partition_inferred`, `go_inferred` (Figure 3)
+- `twoArraysLinearly_inferred`: two arrays allocated inside the `linearly` primitive (§3.2)
+- `fLinearly_inferred`: the `f = linearly $ …` example (§6.3.2)
+- `refExample_inferred`: a small program using the §4.1 reference API (my own example; the paper gives none)
+
+**Encodings and deviations** (all documented in the README):
+- **Qualified argument types:** `linearly`'s argument `Q =⚬ τ` is passed as a linear function from evidence `∃. () ⇐ Q`, which the continuation unpacks.
+- **`lendMut`:** its scoped continuation is replaced by a direct-style version plus `unlendMut`.
+- **Recursion:** recursive definitions are checked against their signature in the context, and `go` is lambda-lifted.
+- **Return types:** I changed some return types because the paper's own code doesn't type-check as printed. A variable bound by `pack` is linear, but it is then passed to an unrestricted argument.
+  - `new` and `newRef` return `Ur …`, matching the paper's code `pack (Ur arr) = new 10`; Figure 1b's type doesn't have the `Ur`.
+  - `partition` and `go` return `Ur Int`, because Figure 3 passes the linear `pivotIdx` to `split`.
+
+**Which copy of a constraint is used (`f`).** `simpleSolve_most_recent` proves the atomic solver consumes the local copy of a constraint and leaves the outer copies alone. For this to hold, an earlier change in this session makes rule S_ImplOne add local hypotheses at the end of the list. That's the end rule Atom_OneL takes from as printed, although the paper says S_ImplOne adds them "on the front".
+
+**`ambiguous2`** (`SolverIncompleteness.lean`). `ambiguous2_entailed` and `ambiguous2_not_solved` show its wanted constraint is provable from a linear `C`, but the solver can't solve it. Like the existing `ambiguous1` result, this is stated at the level of the generated wanted constraint.
+
+**Still not formalized:** `lend`, the plain Linear Haskell API of Figure 1a, and rejection examples in the memory setting. Rejection examples remain in `Ch3_LinearConstraints/`.
+
+The README, the imports in `RequestProject/LQT.lean` and the Properties table are updated.
+
+## Suggested follow-up
+
+Possible inconsistencies in the paper (each documented in the README):
+- **Figure 1b vs §6.3.2:** Figure 1b gives `new` the type `∃ n. UArray a n ⧀ RW n`, but the code in §6.3.2 uses `pack (Ur arr) = new 10`. With Figure 1b's type, the linear `arr` couldn't be passed to `free`.
+- **Figure 3:** `pack pivotIdx = partition arr` binds `pivotIdx` linearly, then passes it to the unrestricted `Int` argument of `split`.
+- **S_ImplOne vs Atom_OneL:** S_ImplOne says new hypotheses go on the front of the list, while Atom_OneL as printed consumes the last occurrence.
+
+I can draft wording for corrections if that would help.
+
 # Summary of changes for run dfd2ee0a-dbeb-4f04-aeb5-4acc16ca59ce
 I moved the formalization into one directory per section of the paper and split the files that covered more than one topic. No definition, statement or proof was changed; only which file each lives in. `RequestProject.LQT` and the default target build with no `sorry`. I re-checked the axioms of the main results (`desugar_typed`, `genG_sound`, `ambiguous_not_solved`, `bad_omega_typed`, `one_entails_omega`): they use only `propext`, `Classical.choice` and `Quot.sound`.
 
