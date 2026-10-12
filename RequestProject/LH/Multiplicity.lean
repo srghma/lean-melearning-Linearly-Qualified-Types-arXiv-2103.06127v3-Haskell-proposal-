@@ -306,7 +306,7 @@ instance : Mul (Usage m) := ⟨mul⟩
 @[simp] theorem nz_add_nz (a b : Mult m) : nz a + nz b = nz (a + b) := rfl
 @[simp] theorem nz_mul_nz (a b : Mult m) : nz a * nz b = nz (a * b) := rfl
 @[simp] theorem one_def : (nz 1 : Usage m) = 1 := rfl
- 
+
 instance : CommSemiring (Usage m) where
   add_assoc a b c := by
     cases a <;> cases b <;> cases c <;> first | rfl | exact congrArg nz (Mult.add_assoc _ _ _)
