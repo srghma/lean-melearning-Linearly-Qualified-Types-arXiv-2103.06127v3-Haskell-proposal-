@@ -306,7 +306,7 @@ instance : Mul (Usage m) := ⟨mul⟩
 @[simp] theorem nz_add_nz (a b : Mult m) : nz a + nz b = nz (a + b) := rfl
 @[simp] theorem nz_mul_nz (a b : Mult m) : nz a * nz b = nz (a * b) := rfl
 @[simp] theorem one_def : (nz 1 : Usage m) = 1 := rfl
-
+ 
 instance : CommSemiring (Usage m) where
   add_assoc a b c := by
     cases a <;> cases b <;> cases c <;> first | rfl | exact congrArg nz (Mult.add_assoc _ _ _)
@@ -475,6 +475,50 @@ theorem Mult.lift_ne_zero {m : Nat} (ρ : Fin m → V3) (hρ : ∀ i, ρ i ≠ V
       revert iha ihb
       cases Mult.lift ρ (Mult.mk a) <;> cases Mult.lift ρ (Mult.mk b) <;> decide
 
+-- [NOT IN PAPER ◀ END]
+
+end LH
+
+namespace LH
+
+-- [NOT IN PAPER ▶ START] closed multiplicities
+/-- Every closed multiplicity is `1` or `ω` (so with no multiplicity variables the
+multiplicities of `λq→` are exactly the two multiplicities `{1, ω}`). -/
+theorem Mult.closed_cases (a : Mult 0) : a = 1 ∨ a = Mult.omega := by
+  induction a using Mult.ind with
+  | h a =>
+    induction a with
+    | one => exact .inl rfl
+    | omega => exact .inr rfl
+    | var i => exact i.elim0
+    | add a b iha ihb =>
+      rw [Mult.mk_add]
+      rcases iha with h | h <;> rcases ihb with h' | h' <;> rw [h, h'] <;> simp
+    | mul a b iha ihb =>
+      rw [Mult.mk_mul]
+      rcases iha with h | h <;> rcases ihb with h' | h' <;> rw [h, h'] <;> simp
+
+/-- `1 ≠ ω` (for any number of multiplicity variables). -/
+theorem Mult.one_ne_omega {m : Nat} : (1 : Mult m) ≠ Mult.omega := by
+  intro h
+  have := congrArg (Mult.lift (fun _ => V3.one)) h
+  simp at this
+
+/-- Evaluation of closed usages in `{0, 1, ω}` is injective. -/
+theorem Usage.eval0_injective : Function.Injective (Usage.eval (Fin.elim0 : Fin 0 → V3)) := by
+  intro a b h
+  cases a with
+  | zero =>
+    cases b with
+    | zero => rfl
+    | nz b' =>
+      rcases Mult.closed_cases b' with rfl | rfl <;> cases h
+  | nz a' =>
+    cases b with
+    | zero => rcases Mult.closed_cases a' with rfl | rfl <;> cases h
+    | nz b' =>
+      rcases Mult.closed_cases a' with rfl | rfl <;> rcases Mult.closed_cases b' with rfl | rfl <;>
+        first | rfl | cases h
 -- [NOT IN PAPER ◀ END]
 
 end LH
